@@ -1,0 +1,352 @@
+Paso 0: Prepara tu Entorno Local
+Crea una carpeta para tu proyecto:
+Crea una nueva carpeta en tu computadora donde guardarás todos los archivos de este proyecto. Nómbrala, por ejemplo, mongo_iot_project.
+
+En Windows, podrías crearla en C:\Users\TuUsuario\Documents\mongo_iot_project
+En macOS/Linux, en ~/Documents/mongo_iot_project
+Abre tu Terminal/Línea de Comandos:
+Necesitarás interactuar con tu sistema operativo.
+
+Windows: Busca "cmd" o "PowerShell" en el menú de inicio.
+macOS: Busca "Terminal" en Launchpad o en Aplicaciones/Utilidades.
+Linux: Abre tu terminal preferida.
+Navega a la carpeta de tu proyecto en la terminal:
+Usa el comando cd (change directory).
+Por ejemplo, si la creaste en Documents:
+
+bash
+cd Documents/mongo_iot_project
+(Asegúrate de que el nombre de la carpeta coincida exactamente).
+
+Paso 1: Archivo generador_datos.py
+Este script de Python generará los datos simulados de sensores para tu base de datos.
+
+Crea el archivo: Dentro de la carpeta mongo_iot_project, crea un nuevo archivo llamado generador_datos.py. Puedes usar un editor de texto simple (Bloc de Notas, TextEdit, Sublime Text, VS Code).
+
+Copia y pega el siguiente código en generador_datos.py:
+
+python
+import json
+import random
+from datetime import datetime, timedelta
+
+def generate_sensor_data(num_documents=120):
+    """
+    Genera una lista de documentos de datos de sensores IoT simulados.
+
+    Args:
+        num_documents (int): El número de documentos de sensores a generar.
+
+    Returns:
+        list: Una lista de diccionarios, donde cada diccionario representa un documento de sensor.
+    """
+    sensors = [
+        {"id": "SNSR-BOG-001", "city": "Bogota", "country": "Colombia", "lat": 4.6097, "lon": -74.0817},
+        {"id": "SNSR-MED-002", "city": "Medellin", "country": "Colombia", "lat": 6.2442, "lon": -75.5812},
+        {"id": "SNSR-CAL-003", "city": "Cali", "country": "Colombia", "lat": 3.4516, "lon": -76.5320},
+        {"id": "SNSR-BOG-004", "city": "Bogota", "country": "Colombia", "lat": 4.7110, "lon": -74.0721},
+        {"id": "SNSR-MED-005", "city": "Medellin", "country": "Colombia", "lat": 6.2000, "lon": -75.5700}
+    ]
+    
+    data = []
+    # Genera datos para los últimos 2 días para que las fechas sean recientes
+    base_time = datetime.now() - timedelta(days=2) 
+    
+    for i in range(num_documents):
+        # Elige un sensor al azar de la lista
+        sensor_info = random.choice(sensors)
+        
+        doc = {
+            "sensor_id": sensor_info["id"],
+            "ubicacion": {
+                "ciudad": sensor_info["city"],
+                "pais": sensor_info["country"],
+                # Añade una pequeña variación a lat/lon para simular diferentes puntos en la ciudad
+                "lat": round(sensor_info["lat"] + random.uniform(-0.1, 0.1), 4),
+                "lon": round(sensor_info["lon"] + random.uniform(-0.1, 0.1), 4)
+            },
+            # Genera un timestamp incremental y con segundos aleatorios para cada lectura
+            "timestamp": (base_time + timedelta(minutes=i * 2, seconds=random.randint(0, 59))).isoformat() + "Z",
+            "tipo_sensor": "Calidad del Aire",
+            "metadatos": {
+                "modelo": random.choice(["AQ-Pro", "EnviroSense", "ClimaTrack"]),
+                "fabricante": random.choice(["TechSensors Inc.", "GreenTech Solutions"])
+            },
+            "mediciones": {
+                "temperatura": round(random.uniform(15.0, 30.0), 2),
+                "humedad": round(random.uniform(40.0, 90.0), 2),
+                "pm2_5": round(random.uniform(5.0, 80.0), 2), 
+                # CO2 y presión son opcionales (simula sensores que no los tienen)
+                "co2": round(random.uniform(350.0, 800.0), 2) if random.random() > 0.3 else None, 
+                "presion": round(random.uniform(980.0, 1020.0), 2) if random.random() > 0.2 else None
+            },
+            "estado_bateria": random.randint(10, 100) # Estado de batería aleatorio
+        }
+        # Introduce algunos valores de pm2_5 altos para pruebas de alertas
+        if random.random() < 0.15: # 15% de probabilidad de tener pm2_5 alto (contaminación)
+            doc["mediciones"]["pm2_5"] = round(random.uniform(50.0, 120.0), 2)
+            
+        data.append(doc)
+        
+    return data
+
+if __name__ == "__main__":
+    # Genera 120 documentos (lecturas de sensores)
+    generated_data = generate_sensor_data(num_documents=120) 
+    # Imprime los datos en formato JSON con indentación para fácil lectura
+    print(json.dumps(generated_data, indent=4))
+Genera el archivo datos_sensores.json:
+En tu terminal (asegúrate de estar en la carpeta mongo_iot_project), ejecuta:
+
+bash
+python generador_datos.py > datos_sensores.json
+Esto creará un archivo datos_sensores.json con 120 documentos JSON.
+
+Paso 2: Instalación y Configuración de MongoDB (Resumen)
+Ya lo cubrimos en detalle, pero aquí los puntos clave:
+
+Instala MongoDB Community Server: Descarga e instala desde https://www.mongodb.com/try/download/community. Asegúrate de que se ejecute como un servicio.
+Instala MongoDB Shell (mongosh): Descarga y descomprime desde https://www.mongodb.com/try/download/shell. Coloca mongosh en el PATH de tu sistema o en la carpeta bin de tu instalación de MongoDB Server.
+Verifica la instalación: Abre la terminal y ejecuta mongosh. Deberías ver el prompt test>.
+Paso 3: Carga de Datos en MongoDB
+Abre tu terminal (y navega a la carpeta mongo_iot_project si no estás allí).
+Carga los datos en MongoDB:
+bash
+mongoimport --db ambiental_iot --collection lecturas_sensores --file datos_sensores.json --jsonArray
+Explicación: Este comando utiliza la utilidad mongoimport para insertar documentos desde el archivo datos_sensores.json en la base de datos ambiental_iot, dentro de la colección lecturas_sensores. La opción --jsonArray es crucial porque tu archivo .json es un array de objetos.
+Verificación: Deberías ver un mensaje como 120 documents imported successfully..
+Paso 4: Comandos CRUD y Agregación en MongoDB Shell
+Aquí te doy un archivo (comandos_mongodb.js) con todos los comandos para que los tengas organizados. No es un archivo que se ejecute directamente, sino una referencia de los comandos que debes pegar en la mongosh.
+
+Crea el archivo: Dentro de la carpeta mongo_iot_project, crea un nuevo archivo llamado comandos_mongodb.js.
+
+Copia y pega el siguiente código en comandos_mongodb.js:
+
+javascript
+// ====================================================================
+// Archivo de Comandos MongoDB - Guía de Aprendizaje
+// NOTA: Este archivo es una referencia. Los comandos se deben ejecutar
+//       manualmente en la MongoDB Shell (mongosh).
+// ====================================================================
+
+// --- 0. Limpieza Inicial (Si ya has cargado datos antes) ---
+// Si necesitas "resetear" la colección a su estado inicial de 120 documentos:
+// Asegúrate de que MongoDB Server esté corriendo y que mongosh esté abierto.
+// Primero, elimina todos los documentos de la colección 'lecturas_sensores'.
+// Ejecutar en mongosh:
+// use ambiental_iot;
+// db.lecturas_sensores.deleteMany({});
+// Después de esto, sal de mongosh (exit), y vuelve a ejecutar el comando
+// mongoimport desde la terminal para cargar los 120 documentos originales.
+// ====================================================================
+
+// --- 1. Conectarse y Seleccionar la Base de Datos ---
+// Abre tu terminal y ejecuta: mongosh
+// Una vez dentro de mongosh, para seleccionar o crear la base de datos:
+use ambiental_iot;
+
+// Verificar que estás en la base de datos correcta:
+db; // Muestra el nombre de la base de datos actual
+
+// Contar los documentos después de la importación (deberían ser 120):
+db.lecturas_sensores.countDocuments();
+
+
+// --- 2. Operaciones CRUD (Create, Read, Update, Delete) ---
+
+// 2.1. CREATE (Insertar un nuevo documento)
+// Inserta una nueva lectura de sensor manualmente.
+// Usamos ISODate() para que la fecha se guarde en un formato estándar de MongoDB.
+db.lecturas_sensores.insertOne(
+    {
+        "sensor_id": "SNSR-NEW-007",
+        "ubicacion": {
+            "ciudad": "Cartagena",
+            "pais": "Colombia",
+            "lat": 10.3910,
+            "lon": -75.4794
+        },
+        "timestamp": ISODate("2023-10-26T15:00:00Z"), // Fecha específica
+        "tipo_sensor": "Humedad",
+        "metadatos": {
+            "modelo": "AquaSense",
+            "fabricante": "Oceanic Tech"
+        },
+        "mediciones": {
+            "humedad": 88.3,
+            "temperatura": 28.5
+        },
+        "estado_bateria": 95
+    }
+);
+
+// 2.2. READ (Consultar documentos)
+
+// Leer todos los documentos (limitado a 5 para no llenar la consola)
+db.lecturas_sensores.find({}).limit(5);
+
+// Leer un documento específico por su sensor_id
+db.lecturas_sensores.findOne({"sensor_id": "SNSR-NEW-007"});
+
+// Leer documentos de una ciudad específica y mostrar solo ciertos campos
+db.lecturas_sensores.find(
+    {"ubicacion.ciudad": "Bogota"},
+    {"sensor_id": 1, "ubicacion.ciudad": 1, "mediciones.pm2_5": 1, "timestamp": 1, "_id": 0} // 1=incluir, 0=excluir
+).limit(5).pretty(); // .pretty() formatea la salida para hacerla más legible
+
+// Consultar lecturas con PM2.5 mayor a 50 (considerado un nivel alto)
+db.lecturas_sensores.find(
+    {"mediciones.pm2_5": {"$gt": 50}} // $gt = greater than (mayor que)
+).limit(5).pretty();
+
+// Consultar lecturas de Cali con temperatura entre 20 y 25 grados
+db.lecturas_sensores.find(
+    {
+        "ubicacion.ciudad": "Cali",
+        "mediciones.temperatura": {"$gte": 20, "$lte": 25} // $gte = greater than or equal, $lte = less than or equal
+    }
+).limit(5).pretty();
+
+// Consultar lecturas que no tienen registro de CO2 (campo no existe o es null) O batería baja (< 20%)
+db.lecturas_sensores.find(
+    {
+        "$or": [ // Operador OR: cualquiera de las condiciones debe ser verdadera
+            {"mediciones.co2": {"$exists": false}}, // Campo 'co2' no existe
+            {"mediciones.co2": null}, // Campo 'co2' existe pero su valor es null
+            {"estado_bateria": {"$lt": 20}} // $lt = less than (menor que)
+        ]
+    }
+).limit(5).pretty();
+
+
+// 2.3. UPDATE (Actualizar documentos)
+
+// Actualizar el estado de batería del sensor recién insertado
+// $set se usa para cambiar el valor de un campo o añadir uno nuevo.
+// ISODate() sin argumentos inserta la fecha/hora actual.
+db.lecturas_sensores.updateOne(
+    {"sensor_id": "SNSR-NEW-007"}, // Filtro: el documento a actualizar
+    {"$set": {"estado_bateria": 100, "metadatos.ultima_actualizacion": ISODate()}} // Operación de actualización
+);
+
+// Verificar la actualización:
+db.lecturas_sensores.findOne({"sensor_id": "SNSR-NEW-007"});
+
+// Actualizar múltiples documentos: aumentar el valor de pm2_5 en un 10% para todos los sensores de Bogotá
+// $mul se usa para multiplicar el valor de un campo numérico.
+db.lecturas_sensores.updateMany(
+    {"ubicacion.ciudad": "Bogota"}, // Filtro: todos los documentos de Bogotá
+    {"$mul": {"mediciones.pm2_5": 1.1}} // Operación: multiplicar pm2_5 por 1.1
+);
+
+// Contar los documentos afectados (matchedCount) y modificados (modifiedCount).
+// Puedes verificar un documento de Bogotá para ver el cambio:
+// db.lecturas_sensores.findOne({"ubicacion.ciudad": "Bogota"});
+
+
+// 2.4. DELETE (Eliminar documentos)
+
+// Eliminar el documento del sensor recién insertado
+db.lecturas_sensores.deleteOne({"sensor_id": "SNSR-NEW-007"});
+
+// Verificar la eliminación (debería retornar null):
+db.lecturas_sensores.findOne({"sensor_id": "SNSR-NEW-007"});
+
+// Eliminar todas las lecturas del sensor SNSR-MED-002
+db.lecturas_sensores.deleteMany({"sensor_id": "SNSR-MED-002"});
+
+// Contar los documentos restantes para SNSR-MED-002 (debería ser 0):
+db.lecturas_sensores.countDocuments({"sensor_id": "SNSR-MED-002"});
+
+
+// --- 3. Operaciones de Agregación (Resúmenes y Estadísticas) ---
+// Utilizan el pipeline de agregación para procesar datos.
+
+// 3.1. Contar el número de lecturas por ciudad
+db.lecturas_sensores.aggregate([
+    {
+        "$group": { // Primera etapa: agrupar documentos
+            "_id": "$ubicacion.ciudad", // Campo por el cual se agrupa (el nombre de la ciudad)
+            "total_lecturas": {"$count": {}} // Operador de acumulación: contar documentos en cada grupo
+        }
+    },
+    {
+        "$sort": {"total_lecturas": -1} // Segunda etapa: ordenar los resultados (descendente por total de lecturas)
+    }
+]);
+
+// 3.2. Calcular promedios y máximos de mediciones por ciudad
+db.lecturas_sensores.aggregate([
+    {
+        "$group": {
+            "_id": "$ubicacion.ciudad",
+            "promedio_temperatura": {"$avg": "$mediciones.temperatura"}, // Promedio de temperatura
+            "promedio_humedad": {"$avg": "$mediciones.humedad"},       // Promedio de humedad
+            "max_pm2_5": {"$max": "$mediciones.pm2_5"}                 // Máximo pm2_5 registrado
+        }
+    },
+    {
+        "$sort": {"max_pm2_5": -1} // Ordenar por el máximo pm2_5 (para ver las ciudades más contaminadas)
+    }
+]);
+
+// 3.3. Encontrar la lectura más reciente para cada sensor
+// Primero ordena para que la lectura más reciente de cada sensor esté al inicio del grupo,
+// luego toma el primer documento de cada grupo.
+db.lecturas_sensores.aggregate([
+    {
+        "$sort": {
+            "sensor_id": 1,     // Ordenar por sensor_id ascendente
+            "timestamp": -1     // Luego por timestamp descendente (más reciente primero)
+        }
+    },
+    {
+        "$group": {
+            "_id": "$sensor_id", // Agrupar por cada sensor_id
+            "ultima_lectura": {"$first": "$$ROOT"} // $$ROOT hace referencia al documento completo
+        }
+    }
+]);
+
+// 3.4. Contar cuántas alertas de PM2.5 (lecturas > 50) hay por ciudad y tipo de sensor
+db.lecturas_sensores.aggregate([
+    {
+        "$match": { // Primera etapa: filtrar documentos que cumplen una condición
+            "mediciones.pm2_5": {"$gt": 50} // Solo documentos con pm2_5 mayor a 50
+        }
+    },
+    {
+        "$group": { // Segunda etapa: agrupar los documentos filtrados
+            "_id": {
+                "ciudad": "$ubicacion.ciudad",  // Agrupar por combinación de ciudad
+                "tipo_sensor": "$tipo_sensor"   // y tipo_sensor
+            },
+            "alertas_pm2_5_altas": {"$count": {}} // Contar las alertas en cada grupo
+        }
+    },
+    {
+        "$sort": {"alertas_pm2_5_altas": -1} // Ordenar por el número de alertas
+    }
+]);
+
+// --- 4. Crear un Índice para Mejorar el Rendimiento de Búsqueda ---
+// Los índices son como los índices de un libro, ayudan a encontrar la información más rápido.
+// Por ejemplo, para búsquedas frecuentes por ciudad:
+db.lecturas_sensores.createIndex({"ubicacion.ciudad": 1}); // 1 para orden ascendente
+
+// Para búsquedas por sensor_id y fecha (común para series de tiempo):
+db.lecturas_sensores.createIndex({"sensor_id": 1, "timestamp": -1}); // sensor_id ascendente, timestamp descendente
+
+// Ver los índices creados:
+db.lecturas_sensores.getIndexes();
+
+// --- 5. Eliminar la Base de Datos (Opcional, para limpiar completamente) ---
+// Si en algún momento quieres eliminar toda la base de datos ambiental_iot:
+// use ambiental_iot;
+// db.dropDatabase();
+// Ten CUIDADO con este comando, elimina todo permanentemente.
+Ejecuta los comandos en mongosh:
+
+Abre tu terminal y escribe mongosh.
+Copia y pega los comandos del archivo comandos_mongodb.js uno por uno en la mongosh y presiona Enter después de cada uno para ver los resultados.
+Importante: Recuerda el punto de "Limpieza Inicial" si necesitas volver a los 120 documentos.
