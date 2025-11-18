@@ -1,0 +1,50 @@
+Este archivo se genera al ejecutar python generador_datos.py > datos_sensores.json. Su contenido variará ligeramente cada vez que lo generes debido a los valores aleatorios, pero aquí te dejo un ejemplo de la estructura esperada de los primeros documentos
+[
+    {
+        "sensor_id": "SNSR-MED-002",
+        "ubicacion": {
+            "ciudad": "Medellin",
+            "pais": "Colombia",
+            "lat": 6.275,
+            "lon": -75.5262
+        },
+        "timestamp": "2023-10-27T10:00:15Z",
+        "tipo_sensor": "Calidad del Aire",
+        "metadatos": {
+            "modelo": "AQ-Pro",
+            "fabricante": "GreenTech Solutions"
+        },
+        "mediciones": {
+            "temperatura": 22.86,
+            "humedad": 75.31,
+            "pm2_5": 28.5,
+            "co2": 580.12,
+            "presion": 1005.4
+        },
+        "estado_bateria": 85
+    },
+    {
+        "sensor_id": "SNSR-BOG-001",
+        "ubicacion": {
+            "ciudad": "Bogota",
+            "pais": "Colombia",
+            "lat": 4.651,
+            "lon": -74.1205
+        },
+        "timestamp": "2023-10-27T10:02:40Z",
+        "tipo_sensor": "Calidad del Aire",
+        "metadatos": {
+            "modelo": "EnviroSense",
+            "fabricante": "TechSensors Inc."
+        },
+        "mediciones": {
+            "temperatura": 18.2,
+            "humedad": 62.1,
+            "pm2_5": 78.92,
+            "co2": null,
+            "presion": 998.7
+        },
+        "estado_bateria": 72
+    }
+    // ... y 118 documentos más ...
+]
