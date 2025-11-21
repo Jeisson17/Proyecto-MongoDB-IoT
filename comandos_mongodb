@@ -1,153 +1,164 @@
-comandos_mongodb.js
-Este archivo contiene los comandos que se ejecutan en la mongosh para las operaciones CRUD, agregación y creación de índices.
+// =============================================================================
+// Archivo: comandos_mongodb.js
+// Descripción: Script con operaciones CRUD y Pipeline de Agregación para la
+//              colección 'lecturas_sensores' en MongoDB, simulando un
+//              sistema de monitoreo ambiental IoT.
+// =============================================================================
 
-javascript
-// ====================================================================
-// Archivo de Comandos MongoDB - Guía de Aprendizaje
-// NOTA: Este archivo es una referencia. Los comandos se deben ejecutar
-//       manualmente en la MongoDB Shell (mongosh) para capturar resultados.
-// ====================================================================
-
-// --- 0. Limpieza Inicial (Opcional, para "resetear" el estado) ---
-// Si necesitas "resetear" la colección a su estado inicial de 120 documentos:
-// Asegúrate de que MongoDB Server esté corriendo y que mongosh esté abierto.
-// 1. Ejecutar en mongosh para seleccionar la DB:
-// use ambiental_iot;
-// 2. Eliminar todos los documentos de la colección 'lecturas_sensores':
-// db.lecturas_sensores.deleteMany({});
-// 3. Salir de mongosh: exit
-// 4. Desde la terminal, volver a ejecutar el comando mongoimport:
-// mongoimport --db ambiental_iot --collection lecturas_sensores --file datos_sensores.json --jsonArray
-// ====================================================================
-
-// --- 1. Conectarse y Seleccionar la Base de Datos ---
-// Abre tu terminal y ejecuta: mongosh
-// Una vez dentro de mongosh, para seleccionar o crear la base de datos:
+// Seleccionar la base de datos de trabajo
+// Asegúrate de que esta base de datos exista o se creará al insertar el primer documento.
 use ambiental_iot;
 
-// Verificar que estás en la base de datos correcta:
-db; // Muestra el nombre de la base de datos actual
+print("--- Iniciando operaciones CRUD y Agregación en la base de datos 'ambiental_iot' ---");
 
-// Contar los documentos después de la importación (deberían ser 120 inicialmente si no has borrado):
-db.lecturas_sensores.countDocuments();
+// =============================================================================
+// 1. VERIFICACIÓN INICIAL (OPCIONAL)
+// =============================================================================
 
+print("\n--- 1.0. Verificación inicial de documentos en la colección ---");
+// Muestra los primeros 5 documentos para tener una idea de la estructura
+db.lecturas_sensores.find({}).limit(5);
 
-// --- 2. Operaciones CRUD (Create, Read, Update, Delete) ---
+// =============================================================================
+// 2. OPERACIONES CRUD (Create, Read, Update, Delete)
+// =============================================================================
 
-// 2.1. CREATE (Insertar un nuevo documento)
-// Inserta una nueva lectura de sensor manualmente.
-// Usamos ISODate() para que la fecha se guarde en un formato estándar de MongoDB.
+// --- 2.1. CREATE (Crear/Insertar documentos) ---
+print("\n--- 2.1. Insertando un nuevo documento de sensor (CREATE) ---");
+// Simula la llegada de una nueva lectura de un sensor recién instalado o reactivado.
 db.lecturas_sensores.insertOne(
     {
         "sensor_id": "SNSR-NEW-007",
         "ubicacion": {
-            "ciudad": "Cartagena",
+            "ciudad": "Santa Marta",
             "pais": "Colombia",
-            "lat": 10.3910,
-            "lon": -75.4794
+            "latitud": 11.233,
+            "longitud": -74.200
         },
-        "timestamp": ISODate("2023-10-26T15:00:00Z"), // Fecha específica
-        "tipo_sensor": "Humedad",
+        "timestamp": new Date(), // Fecha y hora actual
+        "tipo_sensor": "Calidad del Aire",
         "metadatos": {
-            "modelo": "AquaSense",
-            "fabricante": "Oceanic Tech"
+            "fabricante": "IoTTech",
+            "modelo": "AQI-Pro",
+            "firmware_version": "1.2.0",
+            "estado_bateria": 95,
+            "ultima_actualizacion": new Date()
         },
         "mediciones": {
-            "humedad": 88.3,
-            "temperatura": 28.5
-        },
-        "estado_bateria": 95
+            "temperatura": 28.5,    // Grados Celsius
+            "humedad": 80.2,        // Porcentaje
+            "presion_atmosferica": 1010.5, // hPa
+            "pm2_5": 35.8,          // µg/m³ (partículas finas)
+            "pm10": 60.1,           // µg/m³ (partículas gruesas)
+            "o3": 0.045,            // ppm (ozono)
+            "co": 3.2,              // ppm (monóxido de carbono)
+            "no2": 0.021            // ppm (dióxido de nitrógeno)
+        }
     }
 );
 
-// 2.2. READ (Consultar documentos)
+// --- 2.2. READ (Leer/Consultar documentos) ---
+print("\n--- 2.2. Consultando documentos (READ) ---");
 
-// Leer todos los documentos (limitado a 5 para no llenar la consola)
-db.lecturas_sensores.find({}).limit(5);
-
-// Leer un documento específico por su sensor_id
+// 2.2.1. Encontrar un documento por su ID de sensor específico
+print("\n   --- 2.2.1. Buscando el sensor recién insertado (SNSR-NEW-007) ---");
 db.lecturas_sensores.findOne({"sensor_id": "SNSR-NEW-007"});
 
-// Leer documentos de una ciudad específica y mostrar solo ciertos campos
+// 2.2.2. Encontrar documentos con un filtro y proyección (solo campos específicos)
+print("\n   --- 2.2.2. Lecturas de Bogotá con PM2.5 y temperatura (filtrado y proyección) ---");
+// Muestra el sensor_id, ciudad, pm2_5 y temperatura de las lecturas de Bogotá, limitado a 5 resultados.
 db.lecturas_sensores.find(
     {"ubicacion.ciudad": "Bogota"},
-    {"sensor_id": 1, "ubicacion.ciudad": 1, "mediciones.pm2_5": 1, "timestamp": 1, "_id": 0} // 1=incluir, 0=excluir
-).limit(5).pretty(); // .pretty() formatea la salida para hacerla más legible
-
-// Consultar lecturas con PM2.5 mayor a 50 (considerado un nivel alto)
-db.lecturas_sensores.find(
-    {"mediciones.pm2_5": {"$gt": 50}} // $gt = greater than (mayor que)
-).limit(5).pretty();
-
-// Consultar lecturas de Cali con temperatura entre 20 y 25 grados
-db.lecturas_sensores.find(
     {
-        "ubicacion.ciudad": "Cali",
-        "mediciones.temperatura": {"$gte": 20, "$lte": 25} // $gte = greater than or equal, $lte = less than or equal
+        "sensor_id": 1,
+        "ubicacion.ciudad": 1,
+        "mediciones.pm2_5": 1,
+        "mediciones.temperatura": 1,
+        "timestamp": 1,
+        "_id": 0 // Excluir el campo _id
     }
 ).limit(5).pretty();
 
-// Consultar lecturas que no tienen registro de CO2 (campo no existe o es null) O batería baja (< 20%)
+// 2.2.3. Encontrar documentos que cumplen una condición de valor (PM2.5 alta)
+print("\n   --- 2.2.3. Lecturas con PM2.5 superior a 50 ---");
+// Busca lecturas donde el nivel de PM2.5 excede un umbral de seguridad.
 db.lecturas_sensores.find(
-    {
-        "$or": [ // Operador OR: cualquiera de las condiciones debe ser verdadera
-            {"mediciones.co2": {"$exists": false}}, // Campo 'co2' no existe
-            {"mediciones.co2": null}, // Campo 'co2' existe pero su valor es null
-            {"estado_bateria": {"$lt": 20}} // $lt = less than (menor que)
-        ]
-    }
-).limit(5).pretty();
+    {"mediciones.pm2_5": {"$gt": 50}},
+    {"sensor_id": 1, "ubicacion.ciudad": 1, "mediciones.pm2_5": 1, "timestamp": 1, "_id": 0}
+).limit(10).pretty();
 
+// --- 2.3. UPDATE (Actualizar documentos) ---
+print("\n--- 2.3. Actualizando documentos (UPDATE) ---");
 
-// 2.3. UPDATE (Actualizar documentos)
-
-// Actualizar el estado de batería del sensor recién insertado
-// $set se usa para cambiar el valor de un campo o añadir uno nuevo.
-// ISODate() sin argumentos inserta la fecha/hora actual.
+// 2.3.1. Actualizar un solo documento: Cambiar el estado de batería y última actualización de un sensor específico
+print("\n   --- 2.3.1. Actualizando estado de batería del SNSR-NEW-007 ---");
+// Simula el mantenimiento de un sensor (cambio de batería o actualización de firmware).
 db.lecturas_sensores.updateOne(
-    {"sensor_id": "SNSR-NEW-007"}, // Filtro: el documento a actualizar
-    {"$set": {"estado_bateria": 100, "metadatos.ultima_actualizacion": ISODate()}} // Operación de actualización
+    {"sensor_id": "SNSR-NEW-007"},
+    {
+        "$set": {
+            "metadatos.estado_bateria": 100, // Batería al 100%
+            "metadatos.ultima_actualizacion": new Date() // Actualizar fecha de mantenimiento
+        }
+    }
 );
 
-// Verificar la actualización:
-db.lecturas_sensores.findOne({"sensor_id": "SNSR-NEW-007"});
-
-// Actualizar múltiples documentos: aumentar el valor de pm2_5 en un 10% para todos los sensores de Bogotá
-// $mul se usa para multiplicar el valor de un campo numérico.
+// 2.3.2. Actualizar múltiples documentos: Aumentar el valor de pm2_5 en un 10% para todos los sensores de Bogotá
+// --- EXPLICACIÓN DETALLADA PARA EL TUTOR ---
+// Esta operación simula un AJUSTE DE CALIBRACIÓN o la propagación de un error de lectura detectado.
+// CASO DE USO: Si se determina, por ejemplo, que los sensores de calidad del aire en Bogotá
+// han estado sistemáticamente SUBESTIMANDO los niveles reales de PM2.5 en un 10% (quizás por un lote defectuoso
+// o una calibración inicial errónea detectada con sensores de referencia).
+// Esta actualización permite CORREGIR RETROACTIVAMENTE los datos históricos ya registrados
+// para esos sensores específicos en esa ciudad. Esto es crucial para mantener la precisión
+// y la fiabilidad de los datos a lo largo del tiempo, lo cual es vital para el análisis ambiental
+// y el cumplimiento normativo.
+// --- FIN DE EXPLICACIÓN ---
+print("\n   --- 2.3.2. Aumentando PM2.5 en un 10% para sensores de Bogotá ($mul) ---");
 db.lecturas_sensores.updateMany(
     {"ubicacion.ciudad": "Bogota"}, // Filtro: todos los documentos de Bogotá
-    {"$mul": {"mediciones.pm2_5": 1.1}} // Operación: multiplicar pm2_5 por 1.1
+    {"$mul": {"mediciones.pm2_5": 1.1}} // Operación: multiplicar pm2_5 por 1.1 (aumenta un 10%)
 );
 
-// Contar los documentos afectados (matchedCount) y modificados (modifiedCount).
-// Puedes verificar un documento de Bogotá para ver el cambio:
-// db.lecturas_sensores.findOne({"ubicacion.ciudad": "Bogota"});
+// 2.3.3. (Verificación opcional del cambio)
+print("\n   --- 2.3.3. Verificando cambio de PM2.5 en un sensor de Bogotá ---");
+db.lecturas_sensores.find(
+    {"ubicacion.ciudad": "Bogota"},
+    {"sensor_id": 1, "mediciones.pm2_5": 1, "_id": 0}
+).limit(1).pretty();
 
 
-// 2.4. DELETE (Eliminar documentos)
+// --- 2.4. DELETE (Eliminar documentos) ---
+print("\n--- 2.4. Eliminando documentos (DELETE) ---");
 
-// Eliminar el documento del sensor recién insertado
+// 2.4.1. Eliminar un solo documento: El sensor recién insertado (SNSR-NEW-007)
+print("\n   --- 2.4.1. Eliminando el sensor SNSR-NEW-007 ---");
+// Simula el retiro definitivo de un sensor del sistema.
 db.lecturas_sensores.deleteOne({"sensor_id": "SNSR-NEW-007"});
 
-// Verificar la eliminación (debería retornar null):
-db.lecturas_sensores.findOne({"sensor_id": "SNSR-NEW-007"});
-
-// Eliminar todas las lecturas del sensor SNSR-MED-002
+// 2.4.2. Eliminar múltiples documentos: Todas las lecturas de un sensor específico (ej. SNSR-MED-002)
+print("\n   --- 2.4.2. Eliminando todas las lecturas del sensor SNSR-MED-002 ---");
+// Útil si un sensor es dado de baja y se quiere limpiar su historial de datos.
 db.lecturas_sensores.deleteMany({"sensor_id": "SNSR-MED-002"});
 
-// Contar los documentos restantes para SNSR-MED-002 (debería ser 0):
-db.lecturas_sensores.countDocuments({"sensor_id": "SNSR-MED-002"});
+// 2.4.3. (Verificación opcional de la eliminación)
+print("\n   --- 2.4.3. Verificando eliminación del SNSR-NEW-007 ---");
+db.lecturas_sensores.findOne({"sensor_id": "SNSR-NEW-007"}); // Debería retornar 'null'
 
+// =============================================================================
+// 3. PIPELINE DE AGREGACIÓN
+// =============================================================================
 
-// --- 3. Operaciones de Agregación (Resúmenes y Estadísticas) ---
-// Utilizan el pipeline de agregación para procesar datos.
+print("\n--- 3.0. Ejecutando Operaciones de Agregación ---");
 
-// 3.1. Contar el número de lecturas por ciudad
+// 3.1. Contar el número de lecturas por ciudad (CORREGIDO: usando "$sum: 1")
+print("\n   --- 3.1. Conteo de lecturas por ciudad ---");
+// Permite conocer la distribución de los datos y la actividad de los sensores por ubicación.
 db.lecturas_sensores.aggregate([
     {
         "$group": { // Primera etapa: agrupar documentos
             "_id": "$ubicacion.ciudad", // Campo por el cual se agrupa (el nombre de la ciudad)
-            "total_lecturas": {"$count": {}} // Operador de acumulación: contar documentos en cada grupo
+            "total_lecturas": {"$sum": 1} // OPERADOR DE ACUMULACIÓN CORREGIDO: contar documentos en cada grupo
         }
     },
     {
@@ -155,40 +166,47 @@ db.lecturas_sensores.aggregate([
     }
 ]);
 
-// 3.2. Calcular promedios y máximos de mediciones por ciudad
+// 3.2. Calcular promedios, máximos y mínimos de mediciones por ciudad
+print("\n   --- 3.2. Estadísticas de mediciones (promedios, máximos, mínimos) por ciudad ---");
+// Proporciona un resumen de las condiciones ambientales en cada ciudad, identificando tendencias y valores extremos.
 db.lecturas_sensores.aggregate([
     {
         "$group": {
             "_id": "$ubicacion.ciudad",
-            "promedio_temperatura": {"$avg": "$mediciones.temperatura"}, // Promedio de temperatura
-            "promedio_humedad": {"$avg": "$mediciones.humedad"},       // Promedio de humedad
-            "max_pm2_5": {"$max": "$mediciones.pm2_5"}                 // Máximo pm2_5 registrado
+            "promedio_temperatura": {"$avg": "$mediciones.temperatura"},
+            "max_temperatura": {"$max": "$mediciones.temperatura"},
+            "min_temperatura": {"$min": "$mediciones.temperatura"},
+            "promedio_humedad": {"$avg": "$mediciones.humedad"},
+            "max_pm2_5": {"$max": "$mediciones.pm2_5"},
+            "promedio_pm2_5": {"$avg": "$mediciones.pm2_5"}
         }
     },
     {
-        "$sort": {"max_pm2_5": -1} // Ordenar por el máximo pm2_5 (para ver las ciudades más contaminadas)
+        "$sort": {"max_pm2_5": -1} // Ordenar por el PM2.5 máximo para ver las ciudades más contaminadas
     }
 ]);
 
-// 3.3. Encontrar la lectura más reciente para cada sensor
-// Primero ordena para que la lectura más reciente de cada sensor esté al inicio del grupo,
-// luego toma el primer documento de cada grupo.
+// 3.3. Obtener la última lectura de cada sensor
+print("\n   --- 3.3. Última lectura de cada sensor ---");
+// Crucial para obtener el estado actual de cada dispositivo en un dashboard en tiempo real.
 db.lecturas_sensores.aggregate([
     {
         "$sort": {
-            "sensor_id": 1,     // Ordenar por sensor_id ascendente
-            "timestamp": -1     // Luego por timestamp descendente (más reciente primero)
+            "sensor_id": 1, // Ordenar por ID de sensor
+            "timestamp": -1 // Para cada sensor, la lectura más reciente primero
         }
     },
     {
         "$group": {
-            "_id": "$sensor_id", // Agrupar por cada sensor_id
-            "ultima_lectura": {"$first": "$$ROOT"} // $$ROOT hace referencia al documento completo
+            "_id": "$sensor_id", // Agrupar por ID de sensor
+            "ultima_lectura": {"$first": "$$ROOT"} // Tomar el primer documento completo (la última lectura) de cada grupo
         }
     }
 ]);
 
-// 3.4. Contar cuántas alertas de PM2.5 (lecturas > 50) hay por ciudad y tipo de sensor
+// 3.4. Contar cuántas alertas de PM2.5 (lecturas > 50) hay por ciudad y tipo de sensor (CORREGIDO: usando "$sum: 1")
+print("\n   --- 3.4. Conteo de alertas PM2.5 (>50) por ciudad y tipo de sensor ---");
+// Permite identificar hotspots de contaminación y qué tipos de sensores los detectan.
 db.lecturas_sensores.aggregate([
     {
         "$match": { // Primera etapa: filtrar documentos que cumplen una condición
@@ -201,7 +219,7 @@ db.lecturas_sensores.aggregate([
                 "ciudad": "$ubicacion.ciudad",  // Agrupar por combinación de ciudad
                 "tipo_sensor": "$tipo_sensor"   // y tipo_sensor
             },
-            "alertas_pm2_5_altas": {"$count": {}} // Contar las alertas en cada grupo
+            "alertas_pm2_5_altas": {"$sum": 1} // OPERADOR DE ACUMULACIÓN CORREGIDO: Contar las alertas en cada grupo
         }
     },
     {
@@ -209,38 +227,25 @@ db.lecturas_sensores.aggregate([
     }
 ]);
 
+// =============================================================================
+// 4. GESTIÓN DE ÍNDICES
+// =============================================================================
 
-// --- 4. Crear Índices para Mejorar el Rendimiento ---
-// Los índices son como los índices de un libro, ayudan a encontrar la información más rápido.
+print("\n--- 4.0. Gestión de Índices para optimización de consultas ---");
 
-// Para búsquedas frecuentes por ciudad:
-print("Creando índice para 'ubicacion.ciudad'...");
-db.lecturas_sensores.createIndex({"ubicacion.ciudad": 1}); // 1 para orden ascendente
+// 4.1. Crear un índice en 'ubicacion.ciudad'
+print("\n   --- 4.1. Creando índice en 'ubicacion.ciudad' ---");
+// Optimiza las consultas que filtran o ordenan por ciudad.
+db.lecturas_sensores.createIndex({"ubicacion.ciudad": 1});
 
-// Para búsquedas por sensor_id y fecha (común para series de tiempo):
-print("Creando índice para 'sensor_id' y 'timestamp'...");
-db.lecturas_sensores.createIndex({"sensor_id": 1, "timestamp": -1}); // sensor_id ascendente, timestamp descendente
+// 4.2. Crear un índice compuesto en 'sensor_id' y 'timestamp' (descendente)
+print("\n   --- 4.2. Creando índice compuesto en 'sensor_id' y 'timestamp' ---");
+// Mejora el rendimiento de consultas que buscan por sensor_id y necesitan las lecturas más recientes.
+db.lecturas_sensores.createIndex({"sensor_id": 1, "timestamp": -1});
 
-// Ver los índices creados:
-print("Índices actuales en la colección 'lecturas_sensores':");
+// 4.3. Listar todos los índices de la colección
+print("\n   --- 4.3. Listando todos los índices de la colección ---");
+// Confirma que los índices se han creado correctamente.
 db.lecturas_sensores.getIndexes();
 
-// Demostración del uso de índice (implícito al buscar por los campos indexados):
-
-// Esta consulta debería usar el índice en 'ubicacion.ciudad'
-print("Consultando lecturas de Medellín (usando índice de ciudad):");
-db.lecturas_sensores.find({"ubicacion.ciudad": "Medellin"}).limit(5).pretty();
-
-// Esta consulta debería usar el índice compuesto en 'sensor_id' y 'timestamp'
-print("Consultando las últimas 3 lecturas del sensor 'SNSR-BOG-001' (usando índice compuesto):");
-db.lecturas_sensores.find({"sensor_id": "SNSR-BOG-001"})
-    .sort({"timestamp": -1})
-    .limit(3)
-    .pretty();
-
-
-// --- 5. Eliminar la Base de Datos (Opcional, para limpiar completamente) ---
-// Si en algún momento quieres eliminar toda la base de datos ambiental_iot:
-// use ambiental_iot;
-// db.dropDatabase();
-// Ten CUIDADO con este comando, elimina todo permanentemente.
+print("\n--- Fin de las operaciones CRUD y Agregación ---");
